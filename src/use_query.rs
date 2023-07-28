@@ -47,9 +47,9 @@ use std::time::Duration;
 /// }
 ///
 /// // Query for a Monkey.
-/// fn use_monkey_query(cx: Scope, id: impl Fn() -> MonkeyId + 'static) -> QueryResult<Monkey> {
+/// fn use_monkey_query( id: impl Fn() -> MonkeyId + 'static) -> QueryResult<Monkey> {
 ///     leptos_query::use_query(
-///         cx,
+///         
 ///         id,
 ///         get_monkey,
 ///         QueryOptions {
@@ -65,7 +65,6 @@ use std::time::Duration;
 /// ```
 ///
 pub fn use_query<K, V, Fu>(
-    cx: Scope,
     key: impl Fn() -> K + 'static,
     query: impl Fn(K) -> Fu + 'static,
     options: QueryOptions<V>,
@@ -76,22 +75,22 @@ where
     Fu: Future<Output = V> + 'static,
 {
     // Find relevant state.
-    let state = get_state(cx, key);
+    let state = get_state(key);
 
     // Update options.
-    create_isomorphic_effect(cx, {
+    create_isomorphic_effect({
         let options = options.clone();
         move |_| {
             let (state, new) = state.get();
             if new {
                 state.overwrite_options(options.clone())
             } else {
-                state.update_options(cx, options.clone())
+                state.update_options(options.clone())
             }
         }
     });
 
-    let state = Signal::derive(cx, move || state.get().0);
+    let state = Signal::derive(move || state.get().0);
 
     let fetcher = move |state: Query<K, V>| {
         async move {
@@ -114,7 +113,6 @@ where
         let default = options.default_value;
         match options.resource_option {
             ResourceOption::NonBlocking => create_resource_with_initial_value(
-                cx,
                 move || state.get(),
                 fetcher,
                 if default.is_some() {
@@ -123,12 +121,12 @@ where
                     None
                 },
             ),
-            ResourceOption::Blocking => create_blocking_resource(cx, move || state.get(), fetcher),
+            ResourceOption::Blocking => create_blocking_resource(move || state.get(), fetcher),
         }
     };
 
     // Ensure always latest value.
-    create_isomorphic_effect(cx, move |_| {
+    create_isomorphic_effect(move |_| {
         let state = state.get().data.get();
         match state {
             QueryState::Loaded(data) => {
@@ -145,10 +143,10 @@ where
 
     let executor = Rc::new(create_executor(state, query));
 
-    synchronize_state(cx, state, executor.clone());
+    synchronize_state(state, executor.clone());
 
     // Ensure key changes are considered.
-    create_isomorphic_effect(cx, {
+    create_isomorphic_effect({
         let executor = executor.clone();
         move |prev_state: Option<Query<K, V>>| {
             let state = state.get();
@@ -163,10 +161,10 @@ where
         }
     });
 
-    let data = Signal::derive(cx, {
+    let data = Signal::derive({
         let executor = executor.clone();
         move || {
-            let read = resource.read(cx).map(|r| r.0).flatten();
+            let read = resource.read().map(|r| r.0).flatten();
             let state = state.get_untracked();
 
             // First Read.
@@ -189,7 +187,7 @@ where
         }
     });
 
-    QueryResult::new(cx, state, data, executor)
+    QueryResult::new(state, data, executor)
 }
 
 const LONG_TIME: Duration = Duration::from_secs(60 * 60 * 24);

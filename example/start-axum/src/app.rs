@@ -7,27 +7,27 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
-    provide_meta_context(cx);
+    provide_meta_context();
     // Provides Query Client for entire app.
-    provide_query_client(cx);
+    provide_query_client();
 
-    view! { cx,
+    view! {
         <Stylesheet id="leptos" href="/pkg/start-axum.css"/>
         <Title text="Welcome to Leptos"/>
-        <Router fallback=|cx| {
+        <Router fallback=|| {
             let mut outside_errors = Errors::default();
             outside_errors.insert_with_default_key(AppError::NotFound);
-            view! { cx, <ErrorTemplate outside_errors/> }
-                .into_view(cx)
+            view! {  <ErrorTemplate outside_errors/> }
+                .into_view()
         }>
             <main>
                 <Routes>
                     <Route
                         path=""
-                        view=|cx| {
-                            view! { cx,
+                        view=|| {
+                            view! {
                                 <div id="simple" style:width="50rem" style:margin="auto">
                                     <Outlet/>
                                 </div>
@@ -36,32 +36,32 @@ pub fn App(cx: Scope) -> impl IntoView {
                     >
                         <Route
                             path="/"
-                            view=|cx| {
-                                view! { cx, <HomePage/> }
+                            view=|| {
+                                view! {  <HomePage/> }
                             }
                         />
                         <Route
                             path="single"
-                            view=|cx| {
-                                view! { cx, <OnePost/> }
+                            view=|| {
+                                view! {  <OnePost/> }
                             }
                         />
                         <Route
                             path="multi"
-                            view=|cx| {
-                                view! { cx, <MultiPost/> }
+                            view=|| {
+                                view! {  <MultiPost/> }
                             }
                         />
                         <Route
                             path="reactive"
-                            view=|cx| {
-                                view! { cx, <ReactivePost/> }
+                            view=|| {
+                                view! {  <ReactivePost/> }
                             }
                         />
                         <Route
                             path="unique"
-                            view=|cx| {
-                                view! { cx, <UniqueKey/> }
+                            view=|| {
+                                view! {  <UniqueKey/> }
                             }
                         />
                     </Route>
@@ -72,16 +72,16 @@ pub fn App(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn HomePage(cx: Scope) -> impl IntoView {
+fn HomePage() -> impl IntoView {
     let invalidate_one = move |_| {
-        use_query_client(cx).invalidate_query::<PostId, String>(&PostId(1));
+        use_query_client().invalidate_query::<PostId, String>(&PostId(1));
     };
 
     let prefetch_two = move |_| {
-        use_query_client(cx).prefetch_query(cx, || PostId(2), get_post_unwrapped, true);
+        use_query_client().prefetch_query(|| PostId(2), get_post_unwrapped, true);
     };
 
-    view! { cx,
+    view! {
         <div class="container">
             <h1>"Welcome to Leptos Query!"</h1>
             <p>"This is a simple example of using a query cache."</p>
@@ -124,9 +124,8 @@ fn HomePage(cx: Scope) -> impl IntoView {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct PostId(u32);
 
-fn use_post_query(cx: Scope, key: impl Fn() -> PostId + 'static) -> QueryResult<String> {
+fn use_post_query(key: impl Fn() -> PostId + 'static) -> QueryResult<String> {
     use_query(
-        cx,
         key,
         get_post_unwrapped,
         QueryOptions {
@@ -155,13 +154,13 @@ pub async fn get_post(id: PostId) -> Result<String, ServerFnError> {
 }
 
 #[component]
-fn OnePost(cx: Scope) -> impl IntoView {
-    view! { cx, <Post post_id=PostId(1)/> }
+fn OnePost() -> impl IntoView {
+    view! {  <Post post_id=PostId(1)/> }
 }
 
 #[component]
-fn MultiPost(cx: Scope) -> impl IntoView {
-    view! { cx,
+fn MultiPost() -> impl IntoView {
+    view! {
         <h1>"Requests are de-duplicated across components"</h1>
         <br/>
         <Post post_id=PostId(2)/>
@@ -171,10 +170,10 @@ fn MultiPost(cx: Scope) -> impl IntoView {
 }
 
 #[component]
-fn Post(cx: Scope, #[prop(into)] post_id: MaybeSignal<PostId>) -> impl IntoView {
-    let query = use_post_query(cx, post_id.clone());
+fn Post(#[prop(into)] post_id: MaybeSignal<PostId>) -> impl IntoView {
+    let query = use_post_query(post_id.clone());
 
-    create_effect(cx, move |_| match query.state.get() {
+    create_effect(move |_| match query.state.get() {
         QueryState::Created => log!("Created..."),
         QueryState::Loading => log!("Loading..."),
         QueryState::Loaded { .. } => log!("Loaded..."),
@@ -182,7 +181,7 @@ fn Post(cx: Scope, #[prop(into)] post_id: MaybeSignal<PostId>) -> impl IntoView 
         QueryState::Invalid { .. } => log!("Invalid..."),
     });
 
-    view! { cx,
+    view! {
         <div class="container">
             <a href="/">"Home"</a>
             <h2>"Post Key: " {move || post_id.get().0}</h2>
@@ -211,14 +210,14 @@ fn Post(cx: Scope, #[prop(into)] post_id: MaybeSignal<PostId>) -> impl IntoView 
             <div class="post-body">
                 <p>"Post Body"</p>
                 <Transition fallback=move || {
-                    view! { cx, <h2>"Loading..."</h2> }
+                    view! {  <h2>"Loading..."</h2> }
                 }>
                     {move || {
                         query
                             .data
                             .get()
                             .map(|post| {
-                                view! { cx, <h2>{post}</h2> }
+                                view! {  <h2>{post}</h2> }
                             })
                     }}
                 </Transition>
@@ -233,10 +232,10 @@ fn Post(cx: Scope, #[prop(into)] post_id: MaybeSignal<PostId>) -> impl IntoView 
 }
 
 #[component]
-fn ReactivePost(cx: Scope) -> impl IntoView {
-    let (post_id, set_post_id) = create_signal(cx, PostId(1));
+fn ReactivePost() -> impl IntoView {
+    let (post_id, set_post_id) = create_signal(PostId(1));
 
-    view! { cx,
+    view! {
         <Post post_id=post_id/>
         <div style:margin-top="1rem">
             <button
@@ -265,28 +264,27 @@ pub async fn get_unique() -> Result<String, ServerFnError> {
 }
 
 #[component]
-fn UniqueKey(cx: Scope) -> impl IntoView {
+fn UniqueKey() -> impl IntoView {
     let query = use_query(
-        cx,
         || Unique(),
         |_| async { get_unique().await.expect("Failed to retrieve unique") },
         QueryOptions::empty(),
     );
 
-    view! { cx,
+    view! {
         <div class="container">
             <a href="/">"Home"</a>
             <div class="post-body">
                 <p>"Unique Key"</p>
                 <Transition fallback=move || {
-                    view! { cx, <h2>"Loading..."</h2> }
+                    view! {  <h2>"Loading..."</h2> }
                 }>
                     {move || {
                         query
                             .data
                             .get()
                             .map(|response| {
-                                view! { cx, <h2>{response}</h2> }
+                                view! {  <h2>{response}</h2> }
                             })
                     }}
                 </Transition>

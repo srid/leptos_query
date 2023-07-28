@@ -58,9 +58,9 @@ use leptos_query::*;
 use leptos::*;
 
 #[component]
-pub fn App(cx: Scope) -> impl IntoView {
+pub fn App() -> impl IntoView {
     // Provides Query Client for entire app.
-    provide_query_client(cx);
+    provide_query_client();
 
     // Rest of App...
 }
@@ -100,9 +100,9 @@ TLDR: Wrap your key in a [Newtype](https://doc.rust-lang.org/rust-by-example/gen
  }
 
  // Query for a Monkey.
- fn use_monkey_query(cx: Scope, id: impl Fn() -> MonkeyId + 'static) -> QueryResult<Monkey> {
+ fn use_monkey_query(id: impl Fn() -> MonkeyId + 'static) -> QueryResult<Monkey> {
      leptos_query::use_query(
-         cx,
+
          id,
          get_monkey,
          QueryOptions {
@@ -124,8 +124,8 @@ Now you can use the query in any component in your app.
 ```rust
 
 #[component]
-fn MonkeyView(cx: Scope, id: MonkeyId) -> impl IntoView {
-    let query = use_monkey_query(cx, move || id.clone());
+fn MonkeyView(id: MonkeyId) -> impl IntoView {
+    let query = use_monkey_query(move || id.clone());
     let QueryResult {
         data,
         is_loading,
@@ -134,7 +134,7 @@ fn MonkeyView(cx: Scope, id: MonkeyId) -> impl IntoView {
         ..
     } = query;
 
-    view! { cx,
+    view! {
       // You can use the query result data here.
       // Everything is reactive.
        <div>
@@ -157,12 +157,12 @@ fn MonkeyView(cx: Scope, id: MonkeyId) -> impl IntoView {
            // Query data should be read inside a Transition/Suspense component.
            <Transition
                fallback=move || {
-                   view! { cx, <h2>"Loading..."</h2> }
+                   view! { <h2>"Loading..."</h2> }
                }>
                {move || {
                    data.get()
                        .map(|monkey| {
-                           view! { cx, <h2>{monkey.name}</h2> }
+                           view! { <h2>{monkey.name}</h2> }
                        })
                }}
            </Transition>

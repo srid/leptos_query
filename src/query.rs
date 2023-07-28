@@ -32,12 +32,12 @@ where
     K: Clone + 'static,
     V: Clone + 'static,
 {
-    pub(crate) fn new(cx: Scope, key: K) -> Self {
-        let stale_time = create_rw_signal(cx, None);
-        let cache_time = create_rw_signal(cx, None);
-        let refetch_interval = create_rw_signal(cx, None);
+    pub(crate) fn new(key: K) -> Self {
+        let stale_time = create_rw_signal(None);
+        let cache_time = create_rw_signal(None);
+        let refetch_interval = create_rw_signal(None);
 
-        let data = create_rw_signal(cx, QueryState::Created);
+        let data = create_rw_signal(QueryState::Created);
 
         Query {
             key,
@@ -75,7 +75,7 @@ where
     // The lowest stale time & refetch interval will be used.
     // When the scope is dropped, the stale time & refetch interval will be reset to the previous value (if they existed).
     // Cache time behaves differently. It will only use the minimum cache time found.
-    pub(crate) fn update_options(&self, cx: Scope, options: QueryOptions<V>) {
+    pub(crate) fn update_options(&self, options: QueryOptions<V>) {
         // Use the minimum cache time.
         match (self.cache_time.get_untracked(), options.cache_time) {
             (Some(current), Some(new)) if new < current => self.cache_time.set(Some(new)),
@@ -109,7 +109,7 @@ where
         // Reset stale time and refetch interval to previous values when scope is dropped.
         let stale_time = self.stale_time;
         let refetch_interval = self.refetch_interval;
-        on_cleanup(cx, move || {
+        on_cleanup(move || {
             if let Some(prev_stale) = prev_stale {
                 stale_time.set(Some(prev_stale));
             }

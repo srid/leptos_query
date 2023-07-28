@@ -13,20 +13,22 @@ use std::{
 };
 
 /// Provides a Query Client to the current scope.
-pub fn provide_query_client(cx: Scope) {
-    provide_context(cx, QueryClient::new(cx));
+pub fn provide_query_client() {
+    provide_context(QueryClient::new(
+        Owner::current().expect("Owner to be present"),
+    ));
 }
 
 /// Retrieves a Query Client from the current scope.
-pub fn use_query_client(cx: Scope) -> QueryClient {
-    use_context::<QueryClient>(cx).expect("Query Client Missing.")
+pub fn use_query_client() -> QueryClient {
+    use_context::<QueryClient>().expect("Query Client Missing.")
 }
 
 /// The Cache Client to store query data.
 /// Exposes utility functions to manage queries.
 #[derive(Clone)]
 pub struct QueryClient {
-    pub(crate) cx: Scope,
+    pub(crate) owner: Owner,
     pub(crate) cache: Rc<RefCell<HashMap<TypeId, Box<dyn Any>>>>,
 }
 
@@ -34,9 +36,9 @@ pub(crate) type CacheEntry<K, V> = Rc<RefCell<HashMap<K, Query<K, V>>>>;
 
 impl QueryClient {
     /// Creates a new Query Client.
-    pub fn new(cx: Scope) -> Self {
+    pub fn new(owner: Owner) -> Self {
         Self {
-            cx,
+            owner,
             cache: Rc::new(RefCell::new(HashMap::new())),
         }
     }
@@ -45,7 +47,6 @@ impl QueryClient {
     /// If you don't need the result opt for [`QueryClient::prefetch_query()`](::prefetch_query)
     pub fn fetch_query<K, V, Fu>(
         &self,
-        cx: Scope,
         key: impl Fn() -> K + 'static,
         query: impl Fn(K) -> Fu + 'static,
         isomorphic: bool,
@@ -55,9 +56,9 @@ impl QueryClient {
         V: Clone + 'static,
         Fu: Future<Output = V> + 'static,
     {
-        let state = get_state(cx, key);
+        let state = get_state(key);
 
-        let state = Signal::derive(cx, move || state.get().0);
+        let state = Signal::derive(move || state.get().0);
 
         let executor = Rc::new(create_executor(state, query));
 
@@ -69,17 +70,16 @@ impl QueryClient {
             }
         };
         if isomorphic {
-            create_isomorphic_effect(cx, sync);
+            create_isomorphic_effect(sync);
         } else {
-            create_effect(cx, sync);
+            create_effect(sync);
         }
 
-        synchronize_state(cx, state, executor.clone());
+        synchronize_state(state, executor.clone());
 
         QueryResult::new(
-            cx,
             state,
-            Signal::derive(self.cx, move || state.get().data.get().data().cloned()),
+            Signal::derive(move || state.get().data.get().data().cloned()),
             executor,
         )
     }
@@ -88,7 +88,7 @@ impl QueryClient {
     /// If you need the result opt for [`QueryClient::fetch_query()`](Self::fetch_query)
     pub fn prefetch_query<K, V, Fu>(
         &self,
-        cx: Scope,
+
         key: impl Fn() -> K + 'static,
         query: impl Fn(K) -> Fu + 'static,
         isomorphic: bool,
@@ -97,9 +97,9 @@ impl QueryClient {
         V: Clone + 'static,
         Fu: Future<Output = V> + 'static,
     {
-        let state = get_state(cx, key);
+        let state = get_state(key);
 
-        let state = Signal::derive(cx, move || state.get().0);
+        let state = Signal::derive(move || state.get().0);
 
         let executor = create_executor(state, query);
 
@@ -110,9 +110,9 @@ impl QueryClient {
             }
         };
         if isomorphic {
-            create_isomorphic_effect(cx, sync);
+            create_isomorphic_effect(sync);
         } else {
-            create_effect(cx, sync);
+            create_effect(sync);
         }
     }
 
@@ -177,14 +177,13 @@ impl QueryClient {
 }
 
 pub(crate) fn use_cache<K, V, R>(
-    cx: Scope,
-    func: impl FnOnce((Scope, &mut HashMap<K, Query<K, V>>)) -> R + 'static,
+    func: impl FnOnce((Owner, &mut HashMap<K, Query<K, V>>)) -> R + 'static,
 ) -> R
 where
     K: 'static,
     V: 'static,
 {
-    let client = use_query_client(cx);
+    let client = use_query_client();
     let mut cache = client.cache.borrow_mut();
     let entry = cache.entry(TypeId::of::<K>());
 
@@ -198,40 +197,37 @@ where
         .expect("Query Cache Type Mismatch.")
         .borrow_mut();
 
-    func((client.cx, &mut cache))
+    func((client.owner, &mut cache))
 }
 
 // bool is if the state was created!
-pub(crate) fn get_state<K, V>(
-    cx: Scope,
-    key: impl Fn() -> K + 'static,
-) -> Signal<(Query<K, V>, bool)>
+pub(crate) fn get_state<K, V>(key: impl Fn() -> K + 'static) -> Signal<(Query<K, V>, bool)>
 where
     K: Hash + Eq + PartialEq + Clone + 'static,
     V: Clone + 'static,
 {
     use std::collections::hash_map::Entry;
-    let key = create_memo(cx, move |_| key());
+    let key = create_memo(move |_| key());
 
     // Find relevant state.
-    Signal::derive(cx, {
+    Signal::derive({
         move || {
             let key = key.get();
-            use_cache(cx, {
+            use_cache({
                 move |(root_scope, cache)| {
                     let entry = cache.entry(key.clone());
 
-                    let (state, new) = match entry {
+                    let (query, new) = match entry {
                         Entry::Occupied(entry) => {
                             let entry = entry.into_mut();
                             (entry, false)
                         }
                         Entry::Vacant(entry) => {
-                            let state = Query::new(root_scope, key);
-                            (entry.insert(state.clone()), true)
+                            let query = with_owner(root_scope, move || Query::new(key));
+                            (entry.insert(query.clone()), true)
                         }
                     };
-                    (state.clone(), new)
+                    (query.clone(), new)
                 }
             })
         }

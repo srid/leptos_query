@@ -4,10 +4,7 @@ use leptos::{leptos_dom::helpers::TimeoutHandle, *};
 
 use crate::instant::{get_instant, Instant};
 
-pub(crate) fn use_timeout(
-    cx: Scope,
-    func: impl Fn() -> Option<TimeoutHandle> + 'static,
-) -> impl Fn() {
+pub(crate) fn use_timeout(func: impl Fn() -> Option<TimeoutHandle> + 'static) -> impl Fn() {
     // Saves last interval to be cleared on cleanup.
     let timeout: Rc<Cell<Option<TimeoutHandle>>> = Rc::new(Cell::new(None));
     let clean_up = {
@@ -19,9 +16,9 @@ pub(crate) fn use_timeout(
         }
     };
 
-    on_cleanup(cx, clean_up.clone());
+    on_cleanup(clean_up.clone());
 
-    create_effect(cx, move |maybe_handle: Option<Option<TimeoutHandle>>| {
+    create_effect(move |maybe_handle: Option<Option<TimeoutHandle>>| {
         let maybe_handle = maybe_handle.flatten().or_else(|| timeout.take());
         if let Some(handle) = maybe_handle {
             handle.clear();

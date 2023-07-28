@@ -26,9 +26,9 @@
 //! use leptos::*;
 //!
 //! #[component]
-//! pub fn App(cx: Scope) -> impl IntoView {
+//! pub fn App() -> impl IntoView {
 //!     // Provides Query Client for entire app.
-//!     provide_query_client(cx);
+//!     provide_query_client();
 //!
 //!     // Rest of App...
 //! }
@@ -58,9 +58,9 @@
 //! }
 //!
 //! // Query for a Monkey.
-//! fn use_monkey_query(cx: Scope, id: impl Fn() -> MonkeyId + 'static) -> QueryResult<Monkey> {
+//! fn use_monkey_query(id: impl Fn() -> MonkeyId + 'static) -> QueryResult<Monkey> {
 //!     leptos_query::use_query(
-//!         cx,
+//!         
 //!         id,
 //!         get_monkey,
 //!         QueryOptions {
@@ -80,8 +80,8 @@
 //! ```rust
 //!
 //! #[component]
-//! fn MonkeyView(cx: Scope, id: MonkeyId) -> impl IntoView {
-//!     let query = use_monkey_query(cx, move || id.clone());
+//! fn MonkeyView(id: MonkeyId) -> impl IntoView {
+//!     let query = use_monkey_query( move || id.clone());
 //!     let QueryResult {
 //!         data,
 //!         is_loading,
@@ -90,7 +90,7 @@
 //!         ..
 //!     } = query;
 //!
-//!     view! { cx,
+//!     view! {
 //!       // You can use the query result data here.
 //!       // Everything is reactive.
 //!        <div>
@@ -113,12 +113,12 @@
 //!            // Query data should be read inside a Transition/Suspense component.
 //!            <Transition
 //!                fallback=move || {
-//!                    view! { cx, <h2>"Loading..."</h2> }
+//!                    view! { <h2>"Loading..."</h2> }
 //!                }>
 //!                {move || {
 //!                    data()
 //!                        .map(|monkey| {
-//!                            view! { cx, <h2>{monkey.name}</h2> }
+//!                            view! { <h2>{monkey.name}</h2> }
 //!                        })
 //!                }}
 //!            </Transition>
@@ -131,7 +131,6 @@
 mod instant;
 mod query;
 mod query_client;
-mod query_data;
 mod query_executor;
 mod query_options;
 mod query_result;
@@ -142,7 +141,6 @@ mod util;
 pub use instant::*;
 use query::*;
 pub use query_client::*;
-pub use query_data::*;
 pub use query_executor::*;
 pub use query_options::*;
 pub use query_result::*;
