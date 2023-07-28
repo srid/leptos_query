@@ -48,7 +48,7 @@ impl QueryClient {
     pub fn fetch_query<K, V, Fu>(
         &self,
         key: impl Fn() -> K + 'static,
-        query: impl Fn(K) -> Fu + 'static,
+        fetcher: impl Fn(K) -> Fu + 'static,
         isomorphic: bool,
     ) -> QueryResult<V>
     where
@@ -60,7 +60,7 @@ impl QueryClient {
 
         let state = Signal::derive(move || state.get().0);
 
-        let executor = Rc::new(create_executor(state, query));
+        let executor = Rc::new(create_executor(state, fetcher));
 
         let sync = {
             let executor = executor.clone();
@@ -79,7 +79,7 @@ impl QueryClient {
 
         QueryResult::new(
             state,
-            Signal::derive(move || state.get().data.get().data().cloned()),
+            Signal::derive(move || state.get().state.get().data().cloned()),
             executor,
         )
     }

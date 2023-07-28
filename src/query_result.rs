@@ -2,7 +2,7 @@ use std::{rc::Rc, time::Duration};
 
 use crate::{
     query::Query,
-    util::{time_until_stale, use_timeout},
+    util::{maybe_time_until_stale, use_timeout},
     QueryState,
 };
 use leptos::*;
@@ -45,17 +45,14 @@ where
         QueryResult {
             stale_time: Signal::derive(move || state.get().stale_time.get()),
             data,
-            state: Signal::derive(move || state.get().data.get()),
+            state: Signal::derive(move || state.get().state.get()),
             refetch,
         }
     }
 
     pub fn is_loading(&self) -> Signal<bool> {
         let state = self.state;
-        Signal::derive(move || match state.get() {
-            QueryState::Loading => true,
-            _ => false,
-        })
+        Signal::derive(move || matches!(state.get(), QueryState::Loading))
     }
 
     pub fn is_stale(&self) -> Signal<bool> {
@@ -63,9 +60,10 @@ where
         let stale_time = self.stale_time;
         let (stale, set_stale) = create_signal(false);
 
-        let _ = use_timeout(move || match (state.get().updated_at(), stale_time.get()) {
-            (Some(updated_at), Some(stale_time)) => {
-                let timeout = time_until_stale(updated_at, stale_time);
+        let _ = use_timeout(move || {
+            if let Some(timeout) =
+                maybe_time_until_stale(state.get().updated_at(), stale_time.get())
+            {
                 if timeout.is_zero() {
                     set_stale.set(true);
                     None
@@ -79,8 +77,9 @@ where
                     )
                     .ok()
                 }
+            } else {
+                None
             }
-            _ => None,
         });
 
         stale.into()
@@ -88,17 +87,11 @@ where
 
     pub fn is_fetching(&self) -> Signal<bool> {
         let state = self.state;
-        Signal::derive(move || match state.get() {
-            QueryState::Loading | QueryState::Fetching(_) => true,
-            _ => false,
-        })
+        Signal::derive(move || matches!(state.get(), QueryState::Loading | QueryState::Fetching(_)))
     }
 
     pub fn invalidated(&self) -> Signal<bool> {
         let state = self.state;
-        Signal::derive(move || match state.get() {
-            QueryState::Invalid(_) => true,
-            _ => false,
-        })
+        Signal::derive(move || matches!(state.get(), QueryState::Invalid(_)))
     }
 }
