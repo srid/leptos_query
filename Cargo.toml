@@ -18,8 +18,8 @@ gloo-timers = { version = "0.2.6", optional = true, features = ["futures"] }
 tokio = { version = "1.29.1", optional = true, features = ["time"]}
 
 [features]
-hydrate = ["dep:js-sys", "dep:gloo-timers"] 
-ssr = ["dep:tokio"]
+hydrate = ["leptos/hydrate", "dep:js-sys", "dep:gloo-timers"] 
+ssr = ["leptos/ssr", "dep:tokio"]
 
 [package.metadata.docs.rs]
 all-features = true
